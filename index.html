@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>My Lucky Days</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--accent:#f59e0b;--muted:#9ca3af;--glass:rgba(255,255,255,0.03)}
+    *{box-sizing:border-box;font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial}
+    body{margin:0;background:linear-gradient(180deg,#071028 0%, #071722 100%);color:#e6eef8;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}
+    .wrap{width:100%;max-width:980px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:12px;padding:16px;box-shadow:0 10px 30px rgba(2,6,23,0.7)}
+    header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+    h1{font-size:20px;margin:0;letter-spacing:0.3px}
+    .sub{color:var(--muted);font-size:13px;max-width:380px}
+
+    .controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px}
+    label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+    input[type="text"], input[type="number"], select, textarea{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:var(--glass);color:inherit;outline:none;font-size:14px}
+    textarea{min-height:56px;resize:vertical}
+
+    .row{display:flex;gap:12px;flex-wrap:wrap}
+    .btn{background:linear-gradient(90deg,var(--accent),#f97316);border:none;padding:10px 14px;border-radius:8px;color:#081122;font-weight:600;cursor:pointer;flex:1;text-align:center}
+    .btn.ghost{background:transparent;color:var(--accent);border:1px solid rgba(255,255,255,0.04)}
+
+    .results{margin-top:16px;background:rgba(255,255,255,0.02);padding:12px;border-radius:8px;overflow-x:auto}
+    table{width:100%;border-collapse:collapse;min-width:280px}
+    th,td{padding:8px 10px;text-align:left;border-bottom:1px dashed rgba(255,255,255,0.03);font-size:14px;white-space:nowrap}
+    th{color:var(--muted);font-weight:600}
+    .month{font-weight:700;color:#fff;padding:10px 0}
+
+    footer{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-top:12px;color:var(--muted);font-size:13px}
+
+    /* Print styles */
+    @media print{
+      body{background:#fff;color:#000;padding:0}
+      .wrap{box-shadow:none;border-radius:0;background:transparent;padding:0}
+      .controls, header, footer, .actions{display:none}
+      table th, table td{color:#000}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>My Lucky Days</h1>
+        <div class="sub">Enter day numbers and choose months to generate weekdays. Click "Print / Save as PDF" to export.</div>
+      </div>
+      <div>
+        <button id="printBtn" class="btn">Print / Save as PDF</button>
+      </div>
+    </header>
+
+    <section class="controls">
+      <div>
+        <label for="year">Year</label>
+        <input id="year" type="number" value="2025" min="1900" max="9999" />
+      </div>
+
+      <div>
+        <label for="startMonth">Start month</label>
+        <select id="startMonth"></select>
+      </div>
+
+      <div>
+        <label for="endMonth">End month</label>
+        <select id="endMonth"></select>
+      </div>
+
+      <div>
+        <label for="days">Day numbers (comma-separated)</label>
+        <input id="days" type="text" placeholder="e.g. 1,10,19,28" value="1,10,19,28" />
+      </div>
+
+      <div style="grid-column:1/-1">
+        <label for="monthsList">Or pick months (hold Ctrl/Cmd to select multiple)</label>
+        <select id="monthsList" multiple size="4" style="padding:8px;width:100%"></select>
+      </div>
+
+      <div style="grid-column:1/-1;display:flex;gap:10px;flex-wrap:wrap">
+        <button id="generateBtn" class="btn">Generate</button>
+        <button id="exampleBtn" class="btn ghost">Load Sep–Dec 2025 Example</button>
+      </div>
+    </section>
+
+    <section class="results" id="resultsArea">
+      <div id="intro" style="color:var(--muted);padding:6px 2px">No results yet. Enter values and click <strong>Generate</strong>.</div>
+      <div id="output"></div>
+    </section>
+
+    <footer>
+      <div>My Lucky Days — quick calendar lookup</div>
+      <div class="actions">
+        <button id="clearBtn" class="btn ghost">Clear</button>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"]
+    const startMonth = document.getElementById('startMonth')
+    const endMonth = document.getElementById('endMonth')
+    const monthsList = document.getElementById('monthsList')
+    const yearInput = document.getElementById('year')
+    const daysInput = document.getElementById('days')
+    const generateBtn = document.getElementById('generateBtn')
+    const output = document.getElementById('output')
+    const intro = document.getElementById('intro')
+    const printBtn = document.getElementById('printBtn')
+    const exampleBtn = document.getElementById('exampleBtn')
+    const clearBtn = document.getElementById('clearBtn')
+
+    function populateMonths(){
+      monthNames.forEach((m,i)=>{
+        const opt = document.createElement('option'); opt.value = i; opt.textContent = m; startMonth.appendChild(opt)
+        const opt2 = opt.cloneNode(true); endMonth.appendChild(opt2)
+        const opt3 = opt.cloneNode(true); monthsList.appendChild(opt3)
+      })
+      startMonth.selectedIndex = 8 // September default
+      endMonth.selectedIndex = 11 // December default
+      for(let i=8;i<=11;i++){ monthsList.options[i].selected = true }
+    }
+
+    function parseDays(str){
+      if(!str) return []
+      return Array.from(new Set(str.split(',').map(s=>parseInt(s.trim())).filter(n=>Number.isInteger(n) && n>=1 && n<=31))).sort((a,b)=>a-b)
+    }
+
+    function monthRange(start, end){
+      const res = []
+      for(let m=start;m<=end;m++) res.push(m)
+      return res
+    }
+
+    function weekdayName(year, monthZeroBased, day){
+      const d = new Date(year, monthZeroBased, day)
+      if(d.getMonth() !== monthZeroBased) return null
+      return d.toLocaleDateString(undefined,{weekday:'long'})
+    }
+
+    function generate(){
+      const year = parseInt(yearInput.value) || new Date().getFullYear()
+      const selectedMonths = Array.from(monthsList.selectedOptions).map(o=>parseInt(o.value))
+      let months = selectedMonths.length ? selectedMonths : monthRange(parseInt(startMonth.value), parseInt(endMonth.value))
+      months = months.filter(m=>m>=0 && m<=11)
+      if(months.length===0){ output.innerHTML = '<div style="color:var(--muted)">No months selected.</div>'; return }
+
+      const days = parseDays(daysInput.value)
+      if(days.length===0){ output.innerHTML = '<div style="color:var(--muted)">No valid day numbers provided.</div>'; return }
+
+      intro.style.display = 'none'
+      let html = ''
+      months.forEach(m=>{
+        html += `<div class="month">${monthNames[m].toUpperCase()}</div>`
+        html += '<table><thead><tr><th>Date</th><th>Weekday</th></tr></thead><tbody>'
+        days.forEach(day=>{
+          const wd = weekdayName(year, m, day)
+          if(wd){
+            html += `<tr><td>${day} ${monthNames[m].slice(0,3)} ${year}</td><td>${wd}</td></tr>`
+          } else {
+            html += `<tr><td>${day} ${monthNames[m].slice(0,3)} ${year}</td><td style="color:var(--muted)">Invalid date</td></tr>`
+          }
+        })
+        html += '</tbody></table>'
+      })
+      output.innerHTML = html
+    }
+
+    printBtn.addEventListener('click', ()=>{
+      if(!output.innerHTML.trim()) generate()
+      window.print()
+    })
+
+    generateBtn.addEventListener('click', generate)
+    exampleBtn.addEventListener('click', ()=>{
+      yearInput.value = 2025
+      daysInput.value = '1,10,19,28'
+      for(let i=0;i<monthsList.options.length;i++){ monthsList.options[i].selected = (i>=8 && i<=11) }
+      startMonth.selectedIndex = 8; endMonth.selectedIndex = 11
+      generate()
+    })
+
+    clearBtn.addEventListener('click', ()=>{ output.innerHTML=''; intro.style.display='block' })
+
+    populateMonths()
+  </script>
+</body>
+</html>
